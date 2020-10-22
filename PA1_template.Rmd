@@ -1,25 +1,172 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research: Course Project 1"
+author: "Ola Aduroja"
+date: "October 17, 2020"
+output: html_document
 ---
 
+* This is a document that demonstrates the use of R Markdown to produce an HTML document containing both the codes and the results.
 
-## Loading and preprocessing the data
+**1. Code for reading in the dataset and/or processing the data**
+
+There is need to first read all the required Libraries (knitr, ggplot2 and dplyr) into R memory
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+# Load all required Libraries
+library(knitr)
+library(ggplot2)
+library(dplyr)
+
+```
+
+
+Download the zip file, extract and load the activity.csv from the Zip file.
+The Data file activity.csv is in a compressed file and will have to be extracted
+
+
+```{r}
+temporary <- tempfile()
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", temporary, mode="wb")
+unzip(temporary, "activity.csv")
+activity <- read.csv("activity.csv",header=T)
+unlink(temporary)
+
+```
+
+
+The mean total number of steps taken per day Ignoring the missing values is calculated by first computing the aggregate number of steps taken per day. This is done below.
+
+```{r}
+
+totalstepsperday <- aggregate(steps ~ date, data = activity, FUN = sum, na.rm = TRUE)
+
+```
+
+The presented date format of the dates in the activity.csv is converted before plotting the Histogram of the total number of steps taken per day.
+
+```{r}
+## converting dates to Y-M-D format
+activity$date <- as.Date(activity$date, "%Y-%m-%d")
+
+## calculate steps as it relates to date using.
+hist(totalstepsperday$steps, 
+     main="Histogram of Total Steps Taken Per Day", 
+     xlab="Number of Steps per Day", 
+     ylab = "Interval",
+     col="red",
+     breaks=50)
+```
 
 
 
-## What is mean total number of steps taken per day?
+Calculate and report the mean and median total number of steps taken per day.
 
 
+```{r}
 
-## What is the average daily activity pattern?
+# mean of total steps per day
+
+meanTotalSteps <- mean(totalstepsperday$steps)
+meanTotalSteps
+
+# median of total steps per day
+
+medianTotalSteps <- median(totalstepsperday$steps)
+medianTotalSteps
+
+```
 
 
+The average daily activity pattern. A time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
-## Imputing missing values
+```{r}
+## five minute average using steps to interval - FUN = mean instead of sum
+intervalfivemin <- aggregate(steps ~ interval, data = activity, FUN = mean, na.rm = TRUE)
+
+## Plot line chart
+plot(x = intervalfivemin$interval, 
+     y = intervalfivemin$steps, 
+     type = "l", 
+     col = "red",
+     xlab = "5-minute Intervals",
+     ylab = "Average Steps Taken ~ Days",
+     main = "Average Daily Activity Pattern")
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps
+
+```{r}
+maximumsteps <- intervalfivemin$interval[which.max(intervalfivemin$steps)]
+maximumsteps
+
+# Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+# Replace NA values with the mean results for five minute intervals Create a new dataset that is equal to the original dataset but with the missing data filled in
+
+activity2 <- activity
+nas <- is.na(activity2$steps)
+avg_interval <- tapply(activity2$steps, activity2$interval, mean, na.rm=TRUE, simplify = TRUE)
+activity2$steps[nas] <- avg_interval[as.character(activity2$interval[nas])]
+names(activity2)
+
+sum(is.na(activity2))
+
+```
+
+Histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day.
+
+Confirm whether these values differ from the estimates from the values with the Missing values plotted. What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r}
+# The Plot
+# Setting up the pannel for one row and two columns
+par(mfrow=c(1,2))
+
+## Similar analysis without NAs now
+totalstepsperday2 <- aggregate(steps ~ date, data = activity2, FUN = sum, na.rm = TRUE)
+
+# Histogram without the NA values
+hist(totalstepsperday2$steps, 
+     main = "Total Steps per Day (no-NA)", 
+     xlab = "Number of Steps per Day", 
+     ylab = "Interval",
+     col="green",
+     breaks=50)
+# Histogram with the orginal dataset
+hist(totalstepsperday$steps, 
+     main="Total Steps per Day (Original)", 
+     xlab="Number of Steps per Day", 
+     ylab = "Interval",
+     col="orange",
+     breaks=50)
 
 
+# Reset the panel
+par(mfrow=c(1,1))
 
-## Are there differences in activity patterns between weekdays and weekends?
+# What is the impact of imputing data?
+summary(totalstepsperday)
+
+summary(totalstepsperday2)
+```
+
+Panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+```{r}
+## Add the new weekend/weekday field
+activity2<- activity2%>%
+  mutate(typeofday= ifelse(weekdays(activity2$date)=="Saturday" | weekdays(activity2$date)=="Sunday", "Weekend", "Weekday"))
+
+## Plot - Line chart
+intervalfivemin2<- aggregate(steps ~ interval, data = activity2, FUN = mean, na.rm = TRUE)
+head(intervalfivemin2)
+
+# Use ggplot2 Plotting System
+ggplot(activity2, aes(x =interval , y=steps, color=typeofday)) +
+  geom_line() +
+  labs(title = "Ave Daily Steps (type of day)", x = "Interval", y = "Total Number of Steps") +
+  facet_wrap(~ typeofday, ncol = 1, nrow=2)
+
+```
+
